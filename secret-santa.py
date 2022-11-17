@@ -46,9 +46,7 @@ for santa, receiver in zip(participants_list, offset):
     sms_message="Secret Santa 2022!!!\nYou're the Secret Santa of <" + receiver[0] + ">.\nThe gift's budget is: " + budget + coin
     logging.debug(sms_message)
     logging.debug("Sending sms to " + santa[0] + " nº <"+ santa[1].replace(" ", "") +">")
-    if santa[1].replace(" ", "") == "934910217" :
-        logging.debug("Sending SMS")
-        client.publish(
-            PhoneNumber = country_prefix + santa[1].replace(" ", ""),
-            Message=sms_message
-        )
+    client.publish(
+        PhoneNumber = country_prefix + santa[1].replace(" ", ""),
+        Message=sms_message
+    )
