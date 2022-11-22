@@ -1,13 +1,15 @@
 # secret-santa
 
 Simple python script that takes a csv file with Name,Phone and randomly assigns a secret santa to 
-everyone and sends a SMS to everyone letting them know. This leverages AWS SNS for sending the text message.
+everyone and sends a SMS to everyone letting them know. There is a restriction where people from same couple cannot be each others secret santa.
+This leverages AWS SNS for sending the text message.
 
 ## csv file format
 
 ```
-Name,Phone Number
-John Doe,987654321
+Status,Name,Phone Number,[Name],[Phone Number]
+Single,John Doe,91234561
+Couple,Jackie Chan,91234562,Elizabeth,91234563
 ```
 
 # AWS -> SNS -> Text messaging (SMS)
