@@ -76,7 +76,7 @@ for receiver in everyone:
         else:
             not_found = False
 
-    sms_message="Secret Santa 2022!!! Congratulations " + santa[0] +" you're the Secret Santa of << " + receiver[0] + " >>. The gift's budget is: " + budget + coin
+    sms_message="Secret Santa 2023!!! Congratulations " + santa[0] +" you're the Secret Santa of << " + receiver[0] + " >>. The gift's budget is: " + budget + coin
     logging.debug(sms_message)
     secret_santas.pop(santa_index)
     logging.info("Sending sms to " + santa[0] + ", nº <"+ santa[1].replace(" ", "") +">")
