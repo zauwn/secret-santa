@@ -1,89 +1,322 @@
 #!/usr/bin/env python3
 
 import csv
-import boto3
-import random
 import logging
+import os
+import random
+import sys
+from datetime import date
 
-AWS_ACCESS_KEY="AWS-ACCESS-KEY"
-AWS_SECRET_KEY="AWS-SECRET-KEY"
-AWS_REGION="eu-west-1"
+import boto3
+from botocore.exceptions import BotoCoreError, ClientError
 
-FILE="list.csv"
+# ---------------------------------------------------------------------------
+# Configuration (can be overridden via environment variables)
+# ---------------------------------------------------------------------------
 
-budget = "20"
-coin = "€"
-country_prefix="+351"
+AWS_REGION = os.getenv("AWS_REGION", "eu-west-1")
 
-# Change to ERROR to not print anything
-logging.basicConfig(filename="results.log", level=logging.DEBUG)
+# Let boto3 resolve credentials via normal AWS mechanisms
+# (env vars, shared config, instance profile, etc.).
 
-everyone = []
+DEFAULT_FILE = "list.csv"
+DEFAULT_BUDGET = "20"
+DEFAULT_COIN = "€"
+DEFAULT_COUNTRY_PREFIX = "+351"
+DEFAULT_DRY_RUN = False
 
-#### Load list from csv
-couple_index = 0
-with open(FILE, mode='r') as csv_file:
-    csv_reader = csv.reader(csv_file, delimiter=',')
-    line_count = 0
-    fields = next(csv_reader)
-    for row in csv_reader:
-        if row[0].lower() == "couple":
-            everyone.append([row[1], row[2], True, "couple" + str(line_count)])
-            everyone.append([row[3], row[4], True, "couple" + str(line_count)])
-        elif row[0].lower() == "single":
-            everyone.append([row[1], row[2], False ])
-        else:
-            logging.error("Invalid Status: " + row[0])
-        line_count +=1
+EXIT_CODE_ASSIGNMENT_FAILED = 2
+EXIT_CODE_SNS_FAILED = 3
 
-    csv_file.close()
+# Change to logging.ERROR to be quieter
+LOG_LEVEL_NAME = os.getenv("SECRET_SANTA_LOG_LEVEL", "DEBUG").upper()
 
-secret_santas = everyone.copy()
 
-# Start aws sns client
-client = boto3.client(
-    "sns",
-    aws_access_key_id=AWS_ACCESS_KEY,
-    aws_secret_access_key=AWS_SECRET_KEY,
-    region_name=AWS_REGION
-)
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
 
-sms_to_send = {}
 
-for receiver in everyone:
-    not_found = True
-    while not_found:
-        santa_index = random.randrange(0, len(secret_santas))
-        santa = secret_santas[santa_index]
-        # If same receiver and santa, and no one else to choose from, end with invalid
-        if santa[0] == receiver[0] and len(secret_santas) == 1:
-            logging.error("Invalid result. Run again")
-            exit(2)
-        # Santa and Receiver are the same
-        elif santa[0] == receiver[0] and len(secret_santas) > 1:
-            not_found = True
-        # If both couples, make sure they are not the same couple
-        elif santa[2] and receiver[2]:
-            # If same couple and no one else to choose from, end with invalid
-            if santa[3] == receiver[3] and len(secret_santas) == 1:
-                logging.error("Invalid result. Run again")
-                exit(3)
-            # If same couple, don't choose
-            elif santa[3] == receiver[3]:
-                not_found = True
-            else:
-                not_found = False
-        else:
-            not_found = False
+def configure_logging() -> None:
+    level = getattr(logging, LOG_LEVEL_NAME, logging.DEBUG)
+    logging.basicConfig(
+        filename="results.log",
+        level=level,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+    )
 
-    sms_message="Secret Santa 2023!!! Congratulations " + santa[0] +" you're the Secret Santa of << " + receiver[0] + " >>. The gift's budget is: " + budget + coin
-    logging.debug(sms_message)
-    secret_santas.pop(santa_index)
-    logging.info("Sending sms to " + santa[0] + ", nº <"+ santa[1].replace(" ", "") +">")
-    sms_to_send[ santa[1].replace(" ", "")] = sms_message
 
-for number in sms_to_send:
-        client.publish(
-            PhoneNumber = country_prefix + number,
-            Message = sms_to_send[number]
+# ---------------------------------------------------------------------------
+# Data loading
+# ---------------------------------------------------------------------------
+
+
+def load_participants(file_path: str):
+    """
+    Load participants from CSV.
+
+    CSV format:
+    Status,Name,Phone Number,[Name],[Phone Number]
+
+    Status = "Single" or "Couple"
+    """
+    participants = []
+
+    try:
+        with open(file_path, mode="r", newline="") as csv_file:
+            csv_reader = csv.reader(csv_file, delimiter=",")
+            try:
+                _header = next(csv_reader)
+            except StopIteration:
+                logging.error("CSV file '%s' is empty", file_path)
+                sys.exit(EXIT_CODE_ASSIGNMENT_FAILED)
+
+            couple_counter = 0
+            for line_number, row in enumerate(csv_reader, start=2):
+                if not row:
+                    continue
+
+                status = row[0].strip().lower()
+
+                if status == "single":
+                    if len(row) < 3:
+                        logging.error(
+                            "Invalid single entry at line %d: %s",
+                            line_number,
+                            row,
+                        )
+                        continue
+
+                    name = row[1].strip()
+                    phone = row[2].strip()
+                    participants.append(
+                        {
+                            "name": name,
+                            "phone": phone,
+                            "is_couple": False,
+                            "couple_id": None,
+                        }
+                    )
+
+                elif status == "couple":
+                    if len(row) < 5:
+                        logging.error(
+                            "Invalid couple entry at line %d: %s",
+                            line_number,
+                            row,
+                        )
+                        continue
+
+                    couple_id = f"couple{couple_counter}"
+                    couple_counter += 1
+
+                    name1 = row[1].strip()
+                    phone1 = row[2].strip()
+                    name2 = row[3].strip()
+                    phone2 = row[4].strip()
+
+                    participants.append(
+                        {
+                            "name": name1,
+                            "phone": phone1,
+                            "is_couple": True,
+                            "couple_id": couple_id,
+                        }
+                    )
+                    participants.append(
+                        {
+                            "name": name2,
+                            "phone": phone2,
+                            "is_couple": True,
+                            "couple_id": couple_id,
+                        }
+                    )
+
+                else:
+                    logging.error("Invalid status '%s' at line %d", row[0], line_number)
+
+    except FileNotFoundError:
+        logging.error("CSV file '%s' not found", file_path)
+        sys.exit(EXIT_CODE_ASSIGNMENT_FAILED)
+    except OSError as exc:
+        logging.error("Error reading CSV file '%s': %s", file_path, exc)
+        sys.exit(EXIT_CODE_ASSIGNMENT_FAILED)
+
+    if len(participants) < 2:
+        logging.error(
+            "Need at least two valid participants; found %d", len(participants)
         )
+        sys.exit(EXIT_CODE_ASSIGNMENT_FAILED)
+
+    logging.info("Loaded %d participants from '%s'", len(participants), file_path)
+    return participants
+
+
+# ---------------------------------------------------------------------------
+# Secret Santa assignment
+# ---------------------------------------------------------------------------
+
+
+def is_valid_assignment(participants, indices):
+    """
+    Check that a permutation (indices) respects constraints:
+    - No one is their own Santa
+    - People in the same couple cannot be each other's Santa
+    """
+    for receiver_idx, santa_idx in enumerate(indices):
+        receiver = participants[receiver_idx]
+        santa = participants[santa_idx]
+
+        # No self-gifting
+        if santa["name"] == receiver["name"]:
+            return False
+
+        # No same-couple gifting
+        if (
+            santa["is_couple"]
+            and receiver["is_couple"]
+            and santa["couple_id"] == receiver["couple_id"]
+        ):
+            return False
+
+    return True
+
+
+def generate_assignments(participants, max_attempts=1000):
+    """
+    Generate a valid random Secret Santa assignment.
+
+    Returns list of (santa, receiver) dict pairs.
+    """
+    n = len(participants)
+    indices = list(range(n))
+
+    for attempt in range(max_attempts):
+        random.shuffle(indices)
+        if is_valid_assignment(participants, indices):
+            logging.debug("Found valid assignment on attempt %d", attempt + 1)
+            return [
+                (participants[santa_idx], participants[receiver_idx])
+                for receiver_idx, santa_idx in enumerate(indices)
+            ]
+
+    logging.error(
+        "Could not find a valid Secret Santa assignment "
+        "after %d attempts. Try again or adjust constraints.",
+        max_attempts,
+    )
+    sys.exit(EXIT_CODE_ASSIGNMENT_FAILED)
+
+
+def build_sms_messages(assignments, budget, coin, year):
+    """
+    Build SMS messages keyed by phone number (without spaces).
+    """
+    sms_to_send = {}
+
+    for santa, receiver in assignments:
+        phone = santa["phone"].replace(" ", "")
+
+        message = (
+            f"Secret Santa {year}!!! Congratulations {santa['name']} "
+            f"you're the Secret Santa of << {receiver['name']} >>. "
+            f"The gift's budget is: {budget}{coin}"
+        )
+
+        logging.debug("Message for %s: %s", santa["name"], message)
+        logging.info(
+            "Sending SMS to %s, phone <***%s>",
+            santa["name"],
+            phone[-4:] if len(phone) >= 4 else phone,
+        )
+
+        sms_to_send[phone] = message
+
+    return sms_to_send
+
+
+# ---------------------------------------------------------------------------
+# AWS SNS
+# ---------------------------------------------------------------------------
+
+
+def create_sns_client():
+    try:
+        client = boto3.client("sns", region_name=AWS_REGION)
+        logging.info("Initialized SNS client in region '%s'", AWS_REGION)
+        return client
+    except (BotoCoreError, ClientError) as exc:
+        logging.error("Failed to create SNS client: %s", exc)
+        sys.exit(EXIT_CODE_SNS_FAILED)
+
+
+def send_sms_messages(client, sms_to_send, country_prefix, dry_run=False):
+    if dry_run:
+        logging.info("DRY RUN MODE - No SMS messages will be sent")
+        print("\n=== DRY RUN MODE ===")
+        print(f"Would send {len(sms_to_send)} SMS messages:\n")
+
+        for phone, message in sms_to_send.items():
+            full_number = f"{country_prefix}{phone}"
+            print(f"To: {full_number}")
+            print(f"Message: {message}\n")
+
+        logging.info(
+            "Dry run completed. %d messages would have been sent.", len(sms_to_send)
+        )
+        return
+
+    for phone, message in sms_to_send.items():
+        full_number = f"{country_prefix}{phone}"
+        try:
+            client.publish(PhoneNumber=full_number, Message=message)
+            logging.debug("Published SMS to %s", full_number)
+        except (BotoCoreError, ClientError) as exc:
+            logging.error("Failed to send SMS to %s: %s", full_number, exc)
+            # Continue sending to others, but retain non-zero exit code
+            # to signal a problem at the end.
+            return_code = EXIT_CODE_SNS_FAILED
+            # Store last non-zero status in a global variable or return;
+            # here we simply exit on first failure:
+            sys.exit(return_code)
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+
+def main():
+    configure_logging()
+
+    file_path = os.getenv("SECRET_SANTA_FILE", DEFAULT_FILE)
+    budget = os.getenv("SECRET_SANTA_BUDGET", DEFAULT_BUDGET)
+    coin = os.getenv("SECRET_SANTA_COIN", DEFAULT_COIN)
+    country_prefix = os.getenv("SECRET_SANTA_COUNTRY_PREFIX", DEFAULT_COUNTRY_PREFIX)
+    year = os.getenv("SECRET_SANTA_YEAR", str(date.today().year))
+    dry_run_env = os.getenv("SECRET_SANTA_DRY_RUN", "").lower()
+    dry_run = dry_run_env in ("1", "true", "yes", "on")
+
+    logging.info(
+        "Using file='%s', budget=%s%s, year=%s, dry_run=%s",
+        file_path,
+        budget,
+        coin,
+        year,
+        dry_run,
+    )
+
+    participants = load_participants(file_path)
+    assignments = generate_assignments(participants)
+    sms_to_send = build_sms_messages(assignments, budget, coin, year)
+
+    if not dry_run:
+        client = create_sns_client()
+    else:
+        client = None
+
+    send_sms_messages(client, sms_to_send, country_prefix, dry_run)
+
+
+if __name__ == "__main__":
+    main()

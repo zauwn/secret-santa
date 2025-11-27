@@ -1,4 +1,1 @@
-boto3
-jmespath
-cffi
-python-dateutil
+boto3>=1.26.0
