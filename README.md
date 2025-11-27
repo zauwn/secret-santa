@@ -1,8 +1,9 @@
 # secret-santa
 
-Simple Python script that takes a CSV file with participant names and phone numbers, randomly assigns a Secret Santa to everyone, and sends SMS notifications via AWS SNS. 
+Simple Python script that takes a CSV file with participant names and phone numbers, randomly assigns a Secret Santa to everyone, and sends SMS notifications via AWS SNS.
 
 **Key features:**
+
 - Ensures no one is their own Secret Santa
 - Prevents people in the same couple from being assigned to each other
 - Configurable via environment variables
@@ -11,11 +12,13 @@ Simple Python script that takes a CSV file with participant names and phone numb
 ## Installation
 
 1. Install dependencies:
+
 ```bash
 pip install -r requirements.txt
 ```
 
 2. Create your participant list:
+
 ```bash
 cp list.csv.example list.csv
 # Edit list.csv with your actual participants
@@ -50,37 +53,41 @@ Couple,Jackie Chan,91234562,Elizabeth,91234563
 
 All settings can be customized via environment variables:
 
-| Environment Variable | Default | Description |
-|---------------------|---------|-------------|
-| `SECRET_SANTA_FILE` | `list.csv` | Path to CSV file with participants |
-| `SECRET_SANTA_BUDGET` | `20` | Gift budget amount |
-| `SECRET_SANTA_COIN` | `€` | Currency symbol |
-| `SECRET_SANTA_COUNTRY_PREFIX` | `+351` | Country code prefix for phone numbers |
-| `SECRET_SANTA_YEAR` | Current year | Year to display in messages |
-| `SECRET_SANTA_DRY_RUN` | `false` | Dry run mode - generate assignments without sending SMS (1/true/yes/on) |
-| `SECRET_SANTA_LOG_LEVEL` | `DEBUG` | Logging level (DEBUG, INFO, ERROR) |
-| `AWS_REGION` | `eu-west-1` | AWS region for SNS |
+| Environment Variable          | Default      | Description                                                             |
+| ----------------------------- | ------------ | ----------------------------------------------------------------------- |
+| `SECRET_SANTA_FILE`           | `list.csv`   | Path to CSV file with participants                                      |
+| `SECRET_SANTA_BUDGET`         | `20`         | Gift budget amount                                                      |
+| `SECRET_SANTA_COIN`           | `€`          | Currency symbol                                                         |
+| `SECRET_SANTA_COUNTRY_PREFIX` | `+351`       | Country code prefix for phone numbers                                   |
+| `SECRET_SANTA_YEAR`           | Current year | Year to display in messages                                             |
+| `SECRET_SANTA_DRY_RUN`        | `false`      | Dry run mode - generate assignments without sending SMS (1/true/yes/on) |
+| `SECRET_SANTA_LOG_LEVEL`      | `DEBUG`      | Logging level (DEBUG, INFO, ERROR)                                      |
+| `AWS_REGION`                  | `eu-west-1`  | AWS region for SNS                                                      |
 
 ## Usage
 
 ### Basic usage (with defaults):
+
 ```bash
 python3 secret-santa.py
 ```
 
 ### Dry run (test without sending SMS):
+
 ```bash
 export SECRET_SANTA_DRY_RUN=true
 python3 secret-santa.py
 ```
 
 This will:
+
 - Load participants and generate assignments
 - Display all messages that would be sent
 - Skip actual SMS sending
 - Useful for testing before running for real
 
 ### Custom configuration:
+
 ```bash
 export SECRET_SANTA_FILE="my_participants.csv"
 export SECRET_SANTA_BUDGET="50"
@@ -92,6 +99,7 @@ python3 secret-santa.py
 ```
 
 ### Check logs:
+
 ```bash
 tail -f results.log
 ```
@@ -101,7 +109,6 @@ tail -f results.log
 1. **Enable SMS in your AWS account:**
    - Go to AWS SNS console
    - Navigate to "Text messaging (SMS)" → "Sandbox destinations" (if in sandbox mode)
-   
 2. **Sandbox mode:**
    - By default, AWS SNS is in sandbox mode
    - You must verify each destination phone number before sending
@@ -137,3 +144,4 @@ tail -f results.log
 - Check `results.log` for detailed error messages
 - Ensure phone numbers in CSV do not include country prefix
 - Verify AWS credentials have SNS publish permissions
+
