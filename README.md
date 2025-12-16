@@ -14,20 +14,28 @@ Simple Python script that takes a CSV file with participant names and phone numb
 
 ## Installation
 
-1. Install dependencies:
+### Quick Setup (Recommended)
+
+1. Install dependencies using make (creates virtual environment automatically):
 
 ```bash
-pip install -r requirements.txt
+make install
 ```
 
-2. Create your participant list:
+2. Install git pre-commit hooks for code quality:
+
+```bash
+make install-hooks
+```
+
+3. Create your participant list:
 
 ```bash
 cp list.csv.example list.csv
 # Edit list.csv with your actual participants
 ```
 
-3. Configure AWS credentials using one of these methods:
+4. Configure AWS credentials using one of these methods:
    - **Environment variables** (recommended):
      ```bash
      export AWS_ACCESS_KEY_ID="your-access-key"
@@ -35,7 +43,17 @@ cp list.csv.example list.csv
      export AWS_REGION="eu-west-1"  # Optional, defaults to eu-west-1
      ```
    - **AWS credentials file** (`~/.aws/credentials`)
-   - **IAM instance profile** (if running on EC2)
+     - **IAM instance profile** (if running on EC2)
+
+### Manual Installation (Without Make)
+
+If you prefer not to use the Makefile:
+
+```bash
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
+```
 
 ## CSV File Format
 
@@ -73,10 +91,28 @@ All settings can be customized via environment variables:
 
 ## Usage
 
+### Using Make (Recommended)
+
+The project includes a Makefile for easier management. Available commands:
+
+```bash
+make help          # Show all available commands
+make venv          # Create virtual environment
+make install       # Install all dependencies
+make lint          # Run linting and format code
+make lint-check    # Check code quality (used by pre-commit hook)
+make format        # Auto-format code with black and isort
+make install-hooks # Install git pre-commit hooks
+make clean         # Remove logs and cache
+make clean-all     # Remove venv, logs, and cache
+```
+
 ### Send SMS with SNS (default):
 
 ```bash
 python3 secret-santa.py
+# Or if using venv directly:
+venv/bin/python3 secret-santa.py
 ```
 
 This uses AWS SNS to send SMS, enforcing Sender ID (default: NATAL2025).
@@ -85,6 +121,8 @@ This uses AWS SNS to send SMS, enforcing Sender ID (default: NATAL2025).
 
 ```bash
 python3 secret-santa-eum.py
+# Or if using venv directly:
+venv/bin/python3 secret-santa-eum.py
 ```
 - Set required env vars:
   - `EUM_CHANNEL_ID` (must correspond to your AWS EUM Portuguese SMS channel)
@@ -125,6 +163,34 @@ This will:
 
 - If using SNS Sender ID: May require production status and AWS support ticket if running at scale.
 - If using EUM: Register your Sender ID and Channel via AWS Console and ensure you have the correct region/channel ID/Sender ID set in environment.
+
+## Development
+
+### Code Quality
+
+The project uses automated code quality tools:
+
+- **flake8** - Python style guide enforcement
+- **black** - Code formatter (88 character line length)
+- **isort** - Import statement organizer
+
+Run linting before committing:
+
+```bash
+make lint-check    # Check code quality
+make format        # Auto-format code
+make lint          # Check and format in one command
+```
+
+### Git Pre-commit Hooks
+
+Install the pre-commit hook to automatically check code quality:
+
+```bash
+make install-hooks
+```
+
+This will run `make lint-check` automatically before each commit, preventing commits that don't meet code quality standards.
 
 ## Logs
 
