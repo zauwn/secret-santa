@@ -251,7 +251,7 @@ def create_sns_client():
 
 
 def send_sms_messages(client, sms_to_send, country_prefix, dry_run=False):
-    sender_id = os.getenv("SECRET_SANTA_SENDER_ID", "SENDERID01")
+    sender_id = os.getenv("SECRET_SANTA_SENDER_ID", "SENDER001")
     if not sender_id:
         logging.warning(
             "No SNS SenderId set!"

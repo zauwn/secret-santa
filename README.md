@@ -9,8 +9,8 @@ Simple Python script that takes a CSV file with participant names and phone numb
 - Configurable via environment variables
 - Robust error handling and logging
 - **Supports two sending methods:**
-    - AWS SNS (with enforced Sender ID)
-    - AWS End User Messaging (EUM) (recommended for maximum sender control/delivery)
+  - AWS SNS (with enforced Sender ID)
+  - AWS End User Messaging (EUM) (recommended for maximum sender control/delivery)
 
 ## Installation
 
@@ -74,20 +74,20 @@ Couple,Jackie Chan,91234562,Elizabeth,91234563
 
 All settings can be customized via environment variables:
 
-| Environment Variable             | Default      | Description                                                                |
-| -------------------------------- | ------------ | -------------------------------------------------------------------------- |
-| `SECRET_SANTA_FILE`              | `list.csv`   | Path to CSV file with participants                                         |
-| `SECRET_SANTA_BUDGET`            | `20`         | Gift budget amount                                                         |
-| `SECRET_SANTA_COIN`              | `€`          | Currency symbol                                                            |
-| `SECRET_SANTA_COUNTRY_PREFIX`    | `+351`       | Country code prefix for phone numbers                                      |
-| `SECRET_SANTA_YEAR`              | Current year | Year to display in messages                                                |
-| `SECRET_SANTA_DRY_RUN`           | `false`      | Dry run mode - generate assignments without sending SMS (1/true/yes/on)    |
-| `SECRET_SANTA_LOG_LEVEL`         | `DEBUG`      | Logging level (DEBUG, INFO, ERROR)                                         |
-| `AWS_REGION`                     | `eu-west-1`  | AWS region for SNS or EUM                                                  |
-| `SECRET_SANTA_SENDER_ID`         | `NATAL2025`  | **(SNS only)** Sender ID for branded SMS (up to 11 alphanumeric chars)     |
-| `EUM_CHANNEL_ID`                 | (none)       | **(EUM only)** Channel ID for AWS EUM                                      |
-| `EUM_SENDER_ID`                  | `NATAL-22`   | **(EUM only)** Approved Sender ID for EUM                                  |
-| `EUM_REGION`                     | `eu-west-1`  | **(EUM only)** Region for EUM client                                       |
+| Environment Variable          | Default      | Description                                                             |
+| ----------------------------- | ------------ | ----------------------------------------------------------------------- |
+| `SECRET_SANTA_FILE`           | `list.csv`   | Path to CSV file with participants                                      |
+| `SECRET_SANTA_BUDGET`         | `20`         | Gift budget amount                                                      |
+| `SECRET_SANTA_COIN`           | `€`          | Currency symbol                                                         |
+| `SECRET_SANTA_COUNTRY_PREFIX` | `+351`       | Country code prefix for phone numbers                                   |
+| `SECRET_SANTA_YEAR`           | Current year | Year to display in messages                                             |
+| `SECRET_SANTA_DRY_RUN`        | `false`      | Dry run mode - generate assignments without sending SMS (1/true/yes/on) |
+| `SECRET_SANTA_LOG_LEVEL`      | `DEBUG`      | Logging level (DEBUG, INFO, ERROR)                                      |
+| `AWS_REGION`                  | `eu-west-1`  | AWS region for SNS or EUM                                               |
+| `SECRET_SANTA_SENDER_ID`      | `SENDER001`  | **(SNS only)** Sender ID for branded SMS (up to 11 alphanumeric chars)  |
+| `EUM_CHANNEL_ID`              | (none)       | **(EUM only)** Channel ID for AWS EUM                                   |
+| `EUM_SENDER_ID`               | `SENDER001`  | **(EUM only)** Approved Sender ID for EUM                               |
+| `EUM_REGION`                  | `eu-west-1`  | **(EUM only)** Region for EUM client                                    |
 
 ## Usage
 
@@ -115,7 +115,7 @@ python3 secret-santa.py
 venv/bin/python3 secret-santa.py
 ```
 
-This uses AWS SNS to send SMS, enforcing Sender ID (default: NATAL2025).
+This uses AWS SNS to send SMS, enforcing Sender ID (default: SENDER001).
 
 ### Send SMS with End User Messaging (EUM, recommended for delivery):
 
@@ -124,9 +124,10 @@ python3 secret-santa-eum.py
 # Or if using venv directly:
 venv/bin/python3 secret-santa-eum.py
 ```
+
 - Set required env vars:
   - `EUM_CHANNEL_ID` (must correspond to your AWS EUM Portuguese SMS channel)
-  - `EUM_SENDER_ID` (should be set to approved value, e.g., NATAL-22)
+  - `EUM_SENDER_ID` (should be set to approved value, e.g., SENDER001)
   - `EUM_REGION` (usually eu-west-1 for Portugal)
 
 ### Dry run (test without sending SMS):
@@ -140,6 +141,7 @@ python3 secret-santa-eum.py
 ```
 
 This will:
+
 - Load participants and generate assignments
 - Display all messages that would be sent
 - Skip actual SMS sending

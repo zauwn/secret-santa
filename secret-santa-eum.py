@@ -21,7 +21,7 @@ def get_env(key, default=None):
 
 
 EUM_CHANNEL_ID = get_env("EUM_CHANNEL_ID")
-EUM_SENDER_ID = get_env("EUM_SENDER_ID", "SENDER01")
+EUM_SENDER_ID = get_env("EUM_SENDER_ID", "SENDER001")
 EUM_REGION = get_env("EUM_REGION", "eu-west-1")
 DEFAULT_FILE = "list.csv"
 DEFAULT_BUDGET = "20"
